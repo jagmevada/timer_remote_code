@@ -47,7 +47,7 @@
 #define HWI2C 3
 
 #define SETUPLDO() pinMode(LDOEN, OUTPUT);
-#define LDOENABLE() digitalWrite(LDOEN, 1);  // active high, dcdc LDO on
+#define LDOENABLE() digitalWrite(LDOEN, 0);  // active high, dcdc LDO on
 #define LDODISABLE() digitalWrite(LDOEN, 0); // active high, dcdc ldo shutdown
 #define SETUPPOWER() pinMode(POWEREN, OUTPUT);
 #define POWERENABLE() digitalWrite(POWEREN, 0);  // active low,  VIN INPUT TO DCDC LDO supply UNavailable,
