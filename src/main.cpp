@@ -1,4 +1,3 @@
-
 // ATTINY3224/6 has 3 timers  (TCA, TCB0 & TCB1), TCB1 is used by millis, so
 // only TCB0 & TCA available TCA has three Compare and 1 period, so 3 PWM and 1
 // Overflow ISR and 3 compare ISR can be generated this code demonstrate TCA0
@@ -7,82 +6,32 @@
 // in which TCA or TCB0 will toggle LED on PA7(3) pin at 1Hz.
 // Also demonstrate wakeup from sleep with PC0(10) button input and Toggle LED
 // on PA7(3).
-
 #include <Arduino.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
 #include <avr/sleep.h>
+#include <EEPROM.h>
+#include <SPI.h>
+
+// The project fails to build without the above two includes.
 #include <function.h>
-
-// ###################################################################
-// ###################### DEFINED CONSTANTS ##########################
-// ###################################################################
-#define ADC_IN 0
-#define POWEREN 1
-#define SW6 2 // INT
-#define VCCEN 3
-#define LDOEN 4
-#define SET 5
-#define PC_RX 6
-#define PC_TX 7
-#define SDA 8
-#define SCL 9
-#define SW1 10
-#define SW2 11
-#define SW3 12 // INT
-#define SW5 13
-#define HC_TX 14
-#define HC_RX 15
-#define SW4 16
-// ALIAS
-#define SW_UP SW1
-#define SW_DOWN SW3
-#define SW_LEFT SW4
-#define SW_RIGHT SW5
-#define SW_OK SW2
-#define SW_POWER SW6
-#define SWINPUT SW_POWER
-#define HWUART0 1
-#define HWUART1 2
-#define HWI2C 3
-
-#define SETUPLDO() pinMode(LDOEN, OUTPUT);
-#define LDOENABLE() digitalWrite(LDOEN, 0);  // active high, dcdc LDO on
-#define LDODISABLE() digitalWrite(LDOEN, 0); // active high, dcdc ldo shutdown
-#define SETUPPOWER() pinMode(POWEREN, OUTPUT);
-#define POWERENABLE() digitalWrite(POWEREN, 0);  // active low,  VIN INPUT TO DCDC LDO supply UNavailable,
-#define POWERDISABLE() digitalWrite(POWEREN, 1); // active low,  VIN INPUT TO DCDC LDO supply available,
-#define SETUPVAUX() pinMode(VCCEN, OUTPUT);
-#define VAUXENABLE() digitalWrite(VCCEN, 0);  // active low, I2C/UART1 module supply available
-#define VAUXDISABLE() digitalWrite(VCCEN, 1); // active low, I2C, UART1 module supply unavailable
-#define SETUPUART0() pinMode(PC_TX, OUTPUT);
-#define INTERRUPT_EN 0x3
-#define INTERRUPT_DIS 0x0
-#define SW_INTCTRL PORTA.PIN6CTRL /// POWER_SW interrupt enabled
-#define OUTPUT_PINMASK PIN5_bm
-#define DEBOUNCE_PERIOD 5    /// Multiple of 128ms
-#define AUTOOFF_TIMEOUT 2445 // 2445  // 3130  Multiple of 128ms or 100ms
-#define ADC_PERIOD 16        // 6        // 20s at multiple of 128ms
-#define BAT_LOW_TIMEOUT 7
-#define UTH 3300
-#define LTH 2800
-#define LOW 0
-#define HIGH 1
-
-// ###################################################################
-// ###################### HARDWARE INITIALIZATION ####################
-// ###################################################################
-
+#include <counter.h>
+#include <wireless.h>
+#include "lcdgfx.h"
+#include "lcdgfx_gui.h"
 // LORA_E32 lora(Serial1, M0, M1, AUX);
 
-// ###################################################################
-// ###################### DATA TYPES #################################
-// ###################################################################
+// extern DisplaySSD1306_128x64_I2C display(-1);
 
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef ADC_MUXPOS_t adc_0_channel_t;
-
+DisplaySSD1306_128x64_I2C display(-1);
+extern volatile bool update_display;
+extern volatile bool is_paused;
+extern ConfigurableDownCounter counter;
+extern void isr_up_button();
+extern void isr_ok_button();
+extern void isr_down_button();
+extern void isr_left_button();
+extern void isr_right_button();
 // ####################################################################
 // ###################### FUNCTIONS DECLARATION #######################
 // ####################################################################
@@ -100,6 +49,117 @@ void presleep();
 void hwdisable(u8 hardware);
 void hwenable(u8 hardware);
 
+// ###################################################################
+// ############## GLOBAL VARIABLES ###################################
+// ###################################################################
+
+bool new_input, batstate = 1, ldostate = 0, ldostateprev = 0;
+unsigned int vbat = 4095, vbatx = 4095;
+unsigned char t0 = DEBOUNCE_PERIOD, t2 = 0;
+uint16_t t1 = ADC_PERIOD;
+uint16_t timeout = 0;
+boolean txready = 0;
+// ###################################################################
+// #######################  SETUP  ###################################
+// ###################################################################
+//@@@@@@@@@@@@@@@@@@@@@@@@@  SETUP  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+void setup()
+{
+  init_variable();
+  setup_io();
+
+  hwdisable(HWUART0);
+  hwdisable(HWUART1);
+  hwenable(HWI2C);
+  delay(1000);
+
+  batstate = HIGH;
+  new_input = 0;
+  Serial.begin(9600);
+  // presleep();
+  ADC0_Initialize();
+  ADC0_Enable();
+  presleep();
+  POWERDISABLE();
+  set_sleep_mode(SLEEP_MODE_STANDBY);
+  attachInterrupt(SWINPUT, button_input, FALLING);
+  setup_timer_rtc();
+  sleep_enable();
+  sei(); // Enable global interrupts
+}
+
+// void setup()
+// {
+//   init_variable();
+//   void setup_io();
+//   // SETUPLDO();
+//   // LDOENABLE();
+//   // PORTA.OUT |= OUTPUT_PINMASK; // turn on again but
+//   pinMode(ADC_IN, INPUT); // ADC
+//   ADC0_Enable();
+//   t1 = 3;
+//   timeout = AUTOOFF_TIMEOUT;
+//   hwenable(HWI2C);
+//   hwenable(HWUART0);
+//   hwenable(HWUART1);
+//   Serial.begin(9600);
+//   Serial.println("Wokeup");
+//   POWERENABLE();
+//   delay(1000);
+//   setup_display();
+//   delay(1000);
+//   // hwdisable(HWUART0);
+//   // hwdisable(HWUART1);
+//   // hwenable(HWI2C);
+//   batstate = HIGH;
+//   new_input = 0;
+//   Serial.begin(9600);
+//   Serial.println("init..ed");
+
+//   // presleep();
+//   ADC0_Initialize();
+//   ADC0_Disable();
+//   set_sleep_mode(SLEEP_MODE_STANDBY);
+//   attachInterrupt(SWINPUT, button_input, FALLING);
+//   setup_timer_rtc();
+//   setup_timer_b0();
+//   // hc12_power_on_setup();
+//   // hc12_normal_mode();
+
+//   // // Serial.begin(2400);
+//   // update_eeprom_display = true;
+//   // sleep_enable();
+//   sei(); // Enable global interrupts
+// }
+
+// ###################################################################
+// #######################  LOOP#  ###################################
+// ###################################################################
+//@@@@@@@@@@@@@@@@@@@@@@@@@  LOOP  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+void loop()
+{
+
+  if (update_display)
+  {
+    update_display_state();
+    update_display = false;
+  }
+  // ADC0.CTRLA &= ~ADC_ENABLE_bm;
+  if (txready)
+  {
+
+    Serial.println(vbat * 4.096 / 4096);
+    txready = 0;
+  }
+  if (ldostate == 0)
+  {
+    sleep_cpu();
+  }
+}
+// ###################################################################
+// #######################  FUNCTIONS DEFINATION #####################
+// ###################################################################
+
 void hwenable(u8 hardware)
 {
   switch (hardware)
@@ -115,8 +175,8 @@ void hwenable(u8 hardware)
     digitalWrite(14, HIGH);
     break;
   case 3: // I2C
-    pinMode(8, INPUT_PULLUP);
-    pinMode(9, INPUT_PULLUP);
+    pinMode(8, INPUT);
+    pinMode(9, INPUT);
     break;
   default:
     break;
@@ -148,93 +208,14 @@ void hwdisable(u8 hardware)
   }
 }
 
-// ###################################################################
-// ############## GLOBAL VARIABLES ###################################
-// ###################################################################
-bool new_input, batstate = 1, ldostate = 0, ldostateprev = 0;
-unsigned int vbat = 4095, vbatx = 4095;
-unsigned char t0 = DEBOUNCE_PERIOD, t2 = 0;
-uint16_t t1 = ADC_PERIOD;
-uint16_t timeout = 0;
-boolean txready = 0;
-// ###################################################################
-// #######################  SETUP  ###################################
-// ###################################################################
-//@@@@@@@@@@@@@@@@@@@@@@@@@  SETUP  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-void setup()
-{
-  init_variable();
-  pinMode(ADC_IN, OUTPUT); // ADC pin output low for power saving
-  digitalWrite(ADC_IN, LOW);
-  SETUPLDO();
-  LDODISABLE();
-  SETUPPOWER();
-  POWERDISABLE();
-  SETUPVAUX();
-  VAUXDISABLE();
-  // pinMode(1, OUTPUT); // POWER_EN
-  pinMode(2, INPUT); // SW6 POWER_SW external pulled up
-  // pinMode(3, OUTPUT); // VCCEN
-  // pinMode(4, OUTPUT); // LDO_EN
-  // digitalWrite(3, LOW); // it is external pulled down pinMode
-  pinMode(5, OUTPUT); // pulled low
-  // pinMode(6, INPUT_PULLUP); // PC_RX
-  // pinMode(7, INPUT_PULLUP); // PC_TX
-  // pinMode(8, OUTPUT);        // SDA
-  // pinMode(9, OUTPUT);        // SCL
-  pinMode(10, INPUT); // SW1
-  pinMode(11, INPUT); // SW2
-  pinMode(12, INPUT); // SW3
-  pinMode(13, INPUT); // SW5
-  // pinMode(14, INPUT_PULLUP); // HC_TX//Cautious as this pin is TXD
-  // pinMode(15, INPUT_PULLUP); // //Cautious as this pin is RXD
-  pinMode(16, INPUT); // SW4
-
-  hwdisable(HWUART0);
-  hwdisable(HWUART1);
-  hwdisable(HWI2C);
-
-  batstate = HIGH;
-  new_input = 0;
-  Serial.begin(9600);
-  presleep();
-  ADC0_Initialize();
-  ADC0_Disable();
-  set_sleep_mode(SLEEP_MODE_STANDBY);
-  attachInterrupt(SWINPUT, button_input, FALLING);
-  setup_timer_rtc();
-  sleep_enable();
-  sei(); // Enable global interrupts
-}
-
-// ###################################################################
-// #######################  LOOP#  ###################################
-// ###################################################################
-//@@@@@@@@@@@@@@@@@@@@@@@@@  LOOP  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-void loop()
-{
-
-  // ADC0.CTRLA &= ~ADC_ENABLE_bm;
-  if (txready)
-  {
-
-    Serial.println(vbat * 4.096 / 4096);
-    txready = 0;
-  }
-  if (ldostate == 0)
-  {
-    sleep_cpu();
-  }
-}
-// ###################################################################
-// #######################  FUNCTIONS DEFINATION #####################
-// ###################################################################
-
 void presleep()
 {
   Serial.println("sleeping");
-  PORTA.OUT &= ~OUTPUT_PINMASK; // turn off LDO bat low
-  pinMode(ADC_IN, OUTPUT);      // ADC
+  // Serial.println(BOD.CTRLA, HEX);
+  // Serial.println(BOD.CTRLB, HEX);
+
+  display.end();
+  pinMode(ADC_IN, OUTPUT); // ADC
   digitalWrite(ADC_IN, LOW);
   ldostateprev = 1;
   ldostate = 0;
@@ -243,12 +224,37 @@ void presleep()
   hwdisable(HWUART0);
   hwdisable(HWUART1);
   hwdisable(HWI2C);
+  detachInterrupt(UP_BUTTON);
+  detachInterrupt(OK_BUTTON);
+  detachInterrupt(DOWN_BUTTON);
+  detachInterrupt(LEFT_BUTTON);
+  detachInterrupt(RIGHT_BUTTON);
+  // SWUP_INTCTRL = INTERRUPT_DIS;
+  // SWOK_INTCTRL = INTERRUPT_DIS;
+  // SWDOWN_INTCTRL = INTERRUPT_DIS;
+  // SWLEFT_INTCTRL = INTERRUPT_DIS;
+  // SWRIGHT_INTCTRL = INTERRUPT_DIS;
   // pinMode(9, INPUT_PULLUP);
 }
 
 // // ######################### init variables #########################
 void init_variable()
 {
+  // BOD.CTRLA = 0x2;
+  // BOD.CTRLB = 0x0;
+#ifdef FIRSTTIME
+  EEPROM.write(EEPROMADDR, 20);
+  delay(10);
+  EEPROM.write(EEPROMADDR + 1, 0);
+  delay(10);
+#endif
+
+  // uint8_t mins = EEPROM.read(EEPROMADDR);
+  // delay(10);
+  // uint8_t seconds = EEPROM.read(EEPROMADDR + 1);
+  // delay(10);
+  // counter = ConfigurableDownCounter(mins, seconds);
+
   new_input = 0;
   batstate = 1;
   ldostate = 0;
@@ -326,28 +332,20 @@ void button_input(void)
   ldostate = !ldostate;
   new_input = 1;
   if (ldostate)
-  {                              // LDO to be turned on
-    PORTA.OUT |= OUTPUT_PINMASK; // turn on again but
-    ADC0_Enable();
+  { // LDO to be turned on
+    POWERENABLE();
+
     t1 = 3;
     timeout = AUTOOFF_TIMEOUT;
-    pinMode(ADC_IN, INPUT); // ADC
-    hwenable(HWI2C);
-    hwenable(HWUART0);
-    hwenable(HWUART1);
-    Serial.begin(9600);
+    wakeup();
     Serial.println("Wokeup");
-    POWERENABLE();
-    LDOENABLE();
-    // VAUXENABLE();
+    // Serial.println(BOD.CTRLA, HEX);
+    // Serial.println(BOD.CTRLB, HEX);
   }
   else
   { // LDO to be turned off
-
     presleep();
-    LDODISABLE();
     POWERDISABLE();
-    // VAUXDISABLE();
   }
   //}
   PORTA.INTFLAGS = 0x40; // PA6 // clear INTFLAG
@@ -369,7 +367,7 @@ void setup_timer_a()
   TCA0_SINGLE_INTCTRL = TCA_SINGLE_CMP0_bm; // Enable TCA0 timeout interrupt
 };
 // ######################### setup_timer_b0 #############################
-void setup_timer_b0()
+void setup_timer_b0() // 10ms
 {
   TCB0.CCMP = 10000;                                  // CCMP/1MHz, 10ms
   TCB0.CTRLA = TCB_CLKSEL_CLKDIV1_gc | TCB_ENABLE_bm; //| TCB_RUNSTDBY_bm;
@@ -462,7 +460,103 @@ ISR(TCA0_CMP0_vect)
   TCA0_SINGLE_INTFLAGS = TCA_SINGLE_CMP0_bm; /* Clear the interrupt flag */
 }
 // ************************* ISR Timer B0 ***************************
+
 ISR(TCB0_INT_vect)
-{                              ///  // active only when awake
-  TCB0.INTFLAGS = TCB_CAPT_bm; /* Clear the interrupt flag */
+{
+  static uint32_t timer_count = 0;
+  static uint8_t bat_adc_time = ADCTIME;
+  static uint8_t oled_synctime = SYNC_THRESHOLD;
+
+  // TL;DR: each case is executed every 100ms
+  //
+  // After the first round of timer_count increments,
+  // each case is executed every 100ms (The ISR is invoked
+  // every 10ms, at which point ONLY ONE switch case will be
+  // executed, and timer_count will be incremented, essentially
+  // doing a round-robin among the cases every 10ms, and coming
+  // back to the same case every 10ms * NUM_SWITCH_CASES(10 in this case) =
+  // 100ms)
+  switch (timer_count)
+  {
+  case 0:
+  {
+    break;
+  }
+  case 2:
+  {
+    break;
+  }
+  case 4:
+  {
+    break;
+  }
+  case 6:
+  {
+    // if (wait_for_acknowledgement)
+    // {
+    //   if (hc12.available())
+    //   {
+    //     recieve_data.byte = hc12.read();
+    //     if (recieve_data.byte == sent_data.byte)
+    //     {
+    //       switch (sent_data.fields.command)
+    //       {
+    //       case CMD_RESUME: // 1
+    //         // mon.print("command RESUME received\n");
+    //         break;
+    //       case CMD_HOLD: // 2
+    //         // mon.print("command HOLD received\n");
+    //         is_paused = true;
+    //         update_display = true;
+    //         break;
+    //       case CMD_RESTART:    // 0
+    //       case CMD_SET_RESUME: // 3
+    //         // mon.print("command SET received\n");
+    //         is_paused = false;
+    //         break;
+    //       case CMD_STATUS: // 4
+    //         // mon.print("command STATUS received\n");
+    //         break;
+    //       case CMD_NEWDATA: // 5
+    //         // mon.print("command NEWDATA received\n");
+    //         break;
+    //       case CMD_EEPROM: // 6
+    //         is_paused = false;
+    //         break;
+    //       default:
+    //         // mon.print("command %d not implemented\n",
+    //         // data.fields.command);
+    //         break;
+    //       }
+    //     }
+    //   }
+    // }
+    break;
+  }
+  // 10*10 ms round up
+  case 10:
+  {
+    timer_count = 0;
+    if (not is_paused)
+    {
+      --oled_synctime;
+      if (oled_synctime == 0)
+      {
+        update_display = true;
+        counter.CountDownByOneSecond();
+        oled_synctime = SYNC_THRESHOLD;
+      }
+    }
+    break;
+  }
+  default:
+  {
+    break;
+  }
+  }
+
+  ++timer_count;
+
+  // Clear the interrupt flag
+  TCB0.INTFLAGS = TCB_CAPT_bm;
 }
