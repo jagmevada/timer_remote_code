@@ -310,6 +310,8 @@ void wakeup()
     hwenable(HWUART1);
     setup_display();
     Serial.begin(9600);
+    PORTC.INTFLAGS = 0xff;
+    PORTA.INTFLAGS = 0xff;
     attachInterrupt(UP_BUTTON, isr_up_button, FALLING);
     attachInterrupt(OK_BUTTON, isr_ok_button, FALLING);
     attachInterrupt(DOWN_BUTTON, isr_down_button, FALLING);
