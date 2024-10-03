@@ -133,7 +133,7 @@ void isr_ok_button()
         counter = ConfigurableDownCounter(mins, seconds);
 
         sent_data.fields.command = CMD_RESTART;
-        // is_paused = true;
+        is_paused = true; // comment this code
     }
     else if (digitalRead(RIGHT_BUTTON) == LOW &&
              digitalRead(LEFT_BUTTON) == LOW)
@@ -204,6 +204,7 @@ void setup_display()
 
 void update_display_state()
 {
+
     counter.SetOutputString(down_counter_output);
     display.printFixedN(0, 2, down_counter_output, STYLE_NORMAL, 2);
 

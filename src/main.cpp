@@ -1,11 +1,11 @@
-// ATTINY3224/6 has 3 timers  (TCA, TCB0 & TCB1), TCB1 is used by millis, so
-// only TCB0 & TCA available TCA has three Compare and 1 period, so 3 PWM and 1
-// Overflow ISR and 3 compare ISR can be generated this code demonstrate TCA0
-// CMP0 ISR, and TCB0 CMP ISR. this code also demonstrate RTC 1KHz sleep mode
-// running in sleep mode as ULPM, Sleeps for 5seconds then activate CPU for 5sec
-// in which TCA or TCB0 will toggle LED on PA7(3) pin at 1Hz.
-// Also demonstrate wakeup from sleep with PC0(10) button input and Toggle LED
-// on PA7(3).
+// this is new timer's remote controller code, major coded added from your repo, all buttons are working, power on/off working as expected
+// RF interface not tested, you have to include RF code for initialization (FIRST TIME) for programming HC12 by seting SET PIN low and then running normal code (repraggming by commenting FIRST TIME),
+// all button are working remote get pausing and timer time setting working but not coming out of pause, may be required RF side interface
+// timer b0 ISR runnting at 10ms in active (normal) mode, all cases are commented in new code and added as required so kindly add transmitter code
+// Serial for debug and Serial1 for hc12 comms.
+// power button main action: when pressed- mcu calls presleep to disable all ios and go to sleep mode, when pressed again it calls wakeup to reinit ios.
+// when sleeping it cut-off power from OLED display and hc12, when wakup it given power to both, howerver both need to reinialize again, OLED initialization incorporated already, HC12 to be done by u
+
 #include <Arduino.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
@@ -84,6 +84,7 @@ void setup()
   set_sleep_mode(SLEEP_MODE_STANDBY);
   attachInterrupt(SWINPUT, button_input, FALLING);
   setup_timer_rtc();
+  setup_timer_b0();
   sleep_enable();
   sei(); // Enable global interrupts
 }
@@ -138,7 +139,6 @@ void setup()
 //@@@@@@@@@@@@@@@@@@@@@@@@@  LOOP  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 void loop()
 {
-
   if (update_display)
   {
     update_display_state();
@@ -147,7 +147,6 @@ void loop()
   // ADC0.CTRLA &= ~ADC_ENABLE_bm;
   if (txready)
   {
-
     Serial.println(vbat * 4.096 / 4096);
     txready = 0;
   }
@@ -188,14 +187,16 @@ void hwdisable(u8 hardware)
   switch (hardware)
   {
   case 1: // UART0
-    pinMode(6, INPUT_PULLUP);
-    pinMode(7, INPUT_PULLUP); // TX
-    // digitalWrite(7, 1);
+    pinMode(6, OUTPUT);
+    pinMode(7, OUTPUT); // TX
+    digitalWrite(6, LOW);
+    digitalWrite(7, LOW);
     break;
   case 2: // UART1
-    pinMode(15, INPUT_PULLUP);
-    pinMode(14, INPUT_PULLUP); // TX
-    // digitalWrite(14, 1);
+    pinMode(15, OUTPUT);
+    pinMode(14, OUTPUT); // TX
+    digitalWrite(14, LOW);
+    digitalWrite(15, LOW);
     break;
   case 3: // I2C
     pinMode(8, OUTPUT);
@@ -210,7 +211,7 @@ void hwdisable(u8 hardware)
 
 void presleep()
 {
-  Serial.println("sleeping");
+  // Serial.println("sleeping");
   // Serial.println(BOD.CTRLA, HEX);
   // Serial.println(BOD.CTRLB, HEX);
 
@@ -224,16 +225,19 @@ void presleep()
   hwdisable(HWUART0);
   hwdisable(HWUART1);
   hwdisable(HWI2C);
+
+  SWUP_INTCTRL = INTERRUPT_DIS;
+  SWOK_INTCTRL = INTERRUPT_DIS;
+  SWDOWN_INTCTRL = INTERRUPT_DIS;
+  SWLEFT_INTCTRL = INTERRUPT_DIS;
+  SWRIGHT_INTCTRL = INTERRUPT_DIS;
+
   detachInterrupt(UP_BUTTON);
   detachInterrupt(OK_BUTTON);
   detachInterrupt(DOWN_BUTTON);
   detachInterrupt(LEFT_BUTTON);
   detachInterrupt(RIGHT_BUTTON);
-  // SWUP_INTCTRL = INTERRUPT_DIS;
-  // SWOK_INTCTRL = INTERRUPT_DIS;
-  // SWDOWN_INTCTRL = INTERRUPT_DIS;
-  // SWLEFT_INTCTRL = INTERRUPT_DIS;
-  // SWRIGHT_INTCTRL = INTERRUPT_DIS;
+
   // pinMode(9, INPUT_PULLUP);
 }
 
@@ -323,7 +327,7 @@ void Timer_A0(void)
 { // 100ms
 }
 // ######################### button_input #############################
-void button_input(void)
+void button_input(void) /// power button, Toggle to OFF (deep sleep) and ON (countdown or normal ops)
 {
   // if(new_input==0){
   t0 = DEBOUNCE_PERIOD;
@@ -338,7 +342,7 @@ void button_input(void)
     t1 = 3;
     timeout = AUTOOFF_TIMEOUT;
     wakeup();
-    Serial.println("Wokeup");
+    // Serial.println("Wokeup");
     // Serial.println(BOD.CTRLA, HEX);
     // Serial.println(BOD.CTRLB, HEX);
   }
