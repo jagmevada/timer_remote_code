@@ -60,9 +60,9 @@
 #define SWRIGHT_INTCTRL PORTC.PIN3CTRL
 
 #define OUTPUT_PINMASK PIN5_bm
-#define DEBOUNCE_PERIOD 5   /// Multiple of 128ms
+#define DEBOUNCE_PERIOD 5    /// Multiple of 128ms
 #define AUTOOFF_TIMEOUT 2445 // 2445 // 2445  // 3130  Multiple of 128ms or 100ms
-#define ADC_PERIOD 16       // 6        // 20s at multiple of 128ms
+#define ADC_PERIOD 16        // 6        // 20s at multiple of 128ms
 #define BAT_LOW_TIMEOUT 7
 #define UTH 3300
 #define LTH 2800

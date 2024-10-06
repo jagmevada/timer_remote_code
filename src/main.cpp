@@ -514,6 +514,7 @@ ISR(RTC_PIT_vect)
       if (timeout == 0)
       { // Normal autoff timeout event
         presleep();
+        POWERDISABLE();
       }
     }
 
@@ -532,6 +533,7 @@ ISR(RTC_PIT_vect)
         batstate = LOW;
         timeout = 0;
         presleep();
+        POWERDISABLE();
       }
     }
     else
