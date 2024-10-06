@@ -12,6 +12,7 @@
 #include <avr/interrupt.h>
 #include <avr/io.h>
 #include <avr/sleep.h>
+#include <avr/wdt.h>
 
 #include "counter.hpp"
 #include "function.hpp"
@@ -48,18 +49,25 @@ void ADC0_Initialize(void);
 void presleep();
 void hwdisable(u8 hardware);
 void hwenable(u8 hardware);
-
+void setup_watchdog();
 // ###################################################################
 // ############## GLOBAL VARIABLES ###################################
 // ###################################################################
 
 bool new_input, batstate = 1, ldostate = 0, ldostateprev = 0;
-unsigned int vbat = 4095, vbatx = 4095;
+
 unsigned char t0 = DEBOUNCE_PERIOD, t2 = 0;
 uint16_t t1 = ADC_PERIOD;
-uint16_t timeout = 0;
+uint16_t autooff_timeout = 0;
 boolean txready = 0;
-boolean wakeup_now = 0;
+boolean wakeup_now = 0, sleep_now = 0;
+
+bool hc12_sleepmode = 0;
+bool hc12_stateupdate = 0;
+u8 hc12_sleep_timeout = HC12_TIMEOUT_PERIOD;
+u8 power_button_timeout = 0;
+u8 power_button_count = 0;
+u8 autooff_update = 0;
 
 // Counter to calculate how many seconds the remote
 // was in sleep mode, to allow resuming from the correct
@@ -83,15 +91,18 @@ void setup() {
     batstate = HIGH;
     new_input = 0;
     Serial.begin(9600);
-    // presleep();
+    setup_display();
     ADC0_Initialize();
     ADC0_Enable();
-    presleep();
-    POWERDISABLE();
-    set_sleep_mode(SLEEP_MODE_STANDBY);
+
     attachInterrupt(SWINPUT, button_input, FALLING);
     setup_timer_rtc();
     setup_timer_b0();
+    Serial.println("sleep: setup time");
+    presleep();
+    POWERDISABLE();
+    set_sleep_mode(SLEEP_MODE_STANDBY);
+    setup_watchdog();
     sleep_enable();
     sei();  // Enable global interrupts
 }
@@ -99,6 +110,7 @@ void setup() {
 void wakeup() {
     // Serial.println(F("SSD1306 allocation failed"));
     // display.begin();
+    display_once_update = 1;
     pinMode(ADC_IN, INPUT);  // ADC
     ADC0_Enable();
     hwenable(HWI2C);
@@ -189,10 +201,28 @@ void loop() {
         update_display_state();
         update_display = false;
     }
+
     if (wakeup_now) {
         wakeup();
         wakeup_now = 0;
         Serial.print("wokeup");
+    }
+    if (sleep_now) {
+        Serial.print("sleep ISR");
+        presleep();
+        POWERDISABLE();
+        sleep_now = 0;
+    }
+    if (autooff_update > 0) {
+        if (autooff_update = 1) {
+            Serial.print("sleep:auto off timeout");
+        } else {
+            Serial.print("sleep:battery low");
+        }
+
+        autooff_update = 0;
+        presleep();
+        POWERDISABLE();
     }
     // ADC0.CTRLA &= ~ADC_ENABLE_bm;
     if (txready) {
@@ -200,7 +230,26 @@ void loop() {
         txready = 0;
     }
 
+    if (hc12_stateupdate) {
+        hc12_set_mode();        // enter AT cmd mode
+        hc12.print(sleep_cmd);  // set sleep mode
+        delay(50);
+        print_me();
+        hc12_normal_mode();  // exit AT cmd mode
+        hc12_sleepmode = 1;
+        hc12_stateupdate = 0;
+    }
     if (need_to_send) {
+        if (hc12_sleepmode) {
+            hc12_set_mode();        // enter AT cmd mode
+            hc12.print(check_cmd);  // set sleep mode
+            delay(50);
+            print_me();
+            hc12_normal_mode();  // exit AT cmd mode
+            hc12_sleepmode = 0;
+        }
+        hc12_sleep_timeout = HC12_TIMEOUT_PERIOD;
+        hc12_stateupdate = 0;
         switch (sent_data.fields.command) {
             // mon.print("command RESUME received\n");
             break;
@@ -313,7 +362,6 @@ void presleep() {
     Serial.println("sleeping");
     // Serial.println(BOD.CTRLA, HEX);
     // Serial.println(BOD.CTRLB, HEX);
-
     display.end();
     pinMode(ADC_IN, OUTPUT);  // ADC
     digitalWrite(ADC_IN, LOW);
@@ -347,12 +395,12 @@ void init_variable() {
     // BOD.CTRLA = 0x2;
     // BOD.CTRLB = 0x0;
 
-    // #ifdef FIRSTTIME
+#ifdef FIRSTTIME
     EEPROM.write(EEPROMADDR, 20);
     delay(10);
     EEPROM.write(EEPROMADDR + 1, 0);
     delay(10);
-    // #endif
+#endif
 
     uint8_t mins = EEPROM.read(EEPROMADDR);
     delay(10);
@@ -369,7 +417,7 @@ void init_variable() {
     t0 = DEBOUNCE_PERIOD;
     t2 = 0;
     t1 = 9;
-    timeout = 0;
+    autooff_timeout = 0;
     txready = 0;
     need_to_send = 0;
 }
@@ -431,29 +479,21 @@ void button_input(void)  /// power button, Toggle to OFF (deep sleep) and ON (co
     // if(new_input==0){
     t0 = DEBOUNCE_PERIOD;
     SW_INTCTRL = INTERRUPT_DIS;
-    // ldostateprev = ldostate;
-    ldostate = !ldostate;
     new_input = 1;
-    if (ldostate) {  // LDO to be turned on
-        POWERENABLE();
-
-        t1 = 3;
-        timeout = AUTOOFF_TIMEOUT;
-        wakeup_now = 1;
-
-        // Serial.println("Wokeup");
-        // Serial.println(BOD.CTRLA, HEX);
-        // Serial.println(BOD.CTRLB, HEX);
-    } else {  // LDO to be turned off
-        presleep();
-        POWERDISABLE();
-    }
-    //}
+    power_button_timeout = POWER_BUTTON_HOLDTIME;
+    power_button_count = 0;
     PORTA.INTFLAGS = 0x40;  // PA6 // clear INTFLAG
                             //    SLPCTRL.CTRLA = 0x3; // enable sleep and go to standby mode
 }
 
 // ######################### setup_timer_a0 #############################
+void setup_watchdog() {
+    // wdt_disable();
+    // _PROTECTED_WRITE(CCP, 0xD8);
+    // WDT.CTRLA = WDT_PERIOD_4KCLK_gc;
+    _PROTECTED_WRITE(WDT.CTRLA, WDT_PERIOD_4KCLK_gc);
+    // wdt_enable(WDT_PERIOD_4KCLK_gc);
+}
 
 /// @brief Use cautiously as it disables millis()
 void setup_timer_a() {
@@ -485,7 +525,40 @@ void setup_timer_rtc() {
 }
 
 // ************************* ISR Timer RTC ***************************
-ISR(RTC_PIT_vect) {     /// 128 msec timer
+ISR(RTC_PIT_vect) {  /// 128 msec timer
+    if (power_button_timeout > 0) {
+        if ((PORTA.IN & PIN6_bm) == 0) {
+            power_button_count++;
+        }
+        if (power_button_timeout == 1) {
+            if (power_button_count > 5) {  // 600ms
+                ldostate = !ldostate;
+
+                if (ldostate) {  // LDO to be turned on
+                    POWERENABLE();
+                    t1 = ADC_PERIOD;
+                    autooff_timeout = AUTOOFF_TIMEOUT;
+                    wakeup_now = 1;
+                    hc12_sleep_timeout = HC12_TIMEOUT_PERIOD;
+                    // Serial.println("Wokeup");
+                    // Serial.println(BOD.CTRLA, HEX);
+                    // Serial.println(BOD.CTRLB, HEX);
+                } else {  // LDO to be turned off
+                    sleep_now = 1;
+                }
+                power_button_count = 0;
+            }
+        }
+        power_button_timeout--;
+    }
+
+    static u8 wdt_time = 8;
+    if (wdt_time == 0) {
+        wdt_reset();
+        wdt_time = 8;
+    }
+    wdt_time--;
+
     if (new_input) {    /// routine for enable button interrupt after debounce
                         /// period
         t0--;           // debounce timer countdown
@@ -498,12 +571,17 @@ ISR(RTC_PIT_vect) {     /// 128 msec timer
 
     if (ldostate == 1) {  // Vbat monitoring and auto cutoff
 
-        if (timeout > 0) {  // Normal autoff timeout countdown, set to AUTOOFF_TIMEOUT
+        if (hc12_sleep_timeout > 0) {
+            hc12_sleep_timeout--;
+            if (hc12_sleep_timeout == 0) {
+                hc12_stateupdate = 1;
+            }
+        }
+        if (autooff_timeout > 0) {  // Normal autoff timeout countdown, set to AUTOOFF_TIMEOUT
             // when power button pressed
-            timeout--;
-            if (timeout == 0) {  // Normal autoff timeout event
-                presleep();
-                POWERDISABLE();
+            autooff_timeout--;
+            if (autooff_timeout == 0) {  // Normal autoff timeout event
+                autooff_update = 1;
             }
         }
 
@@ -517,9 +595,8 @@ ISR(RTC_PIT_vect) {     /// 128 msec timer
         if (batstate == HIGH) {  // battery is discharging to cutoff
             if (vbatx < LTH) {   // reached at cutoff
                 batstate = LOW;
-                timeout = 0;
-                presleep();
-                POWERDISABLE();
+                autooff_timeout = 0;
+                autooff_update = 2;
             }
         } else {  // charging to reach full charge voltage 4.2V
             if (vbatx > UTH) {
@@ -529,7 +606,7 @@ ISR(RTC_PIT_vect) {     /// 128 msec timer
     } else {
         sleep_enable();
     }
-
+    wdt_reset();
     // Increment the counter tracking how long are
     // we in sleep mode.
     ++rtc_sleep_counter;

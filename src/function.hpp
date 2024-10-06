@@ -64,8 +64,9 @@
 #define AUTOOFF_TIMEOUT 2445  // 2445 // 2445  // 3130  Multiple of 128ms or 100ms
 #define ADC_PERIOD 16         // 6        // 20s at multiple of 128ms
 #define BAT_LOW_TIMEOUT 7
-#define UTH 3300
-#define LTH 2800
+#define POWER_BUTTON_HOLDTIME 8  // Multiple of 128ms
+#define UTH 2600
+#define LTH 2200
 #define LOW 0
 #define HIGH 1
 
@@ -155,6 +156,9 @@ volatile bool wait_for_acknowledgement = false;
 protocol_data recieve_data;
 
 volatile bool update_eeprom_display = false;
+
+bool display_once_update = 0;
+unsigned int vbat = 4095, vbatx = 4095;
 
 u8 paritycheck(u8 data) {
     data ^= data >> 4;
@@ -281,14 +285,12 @@ void isr_left_button() {
 };
 
 void setup_display() {
-    display.clear();
-    lcd_delay(10);
-    display.setFixedFont(ssd1306xled_font6x8);
-    lcd_delay(10);
-    display.clear();
-    lcd_delay(100);
     display.begin();
     lcd_delay(100);
+    display.clear();
+    lcd_delay(50);
+    display.setFixedFont(ssd1306xled_font6x8);
+    lcd_delay(10);
     display.clear();
     lcd_delay(100);
     display.printFixedN(0, 2, "JSCA", STYLE_NORMAL, 2);
@@ -297,6 +299,9 @@ void setup_display() {
 void update_display_state() {
     counter.SetOutputString(down_counter_output);
     display.printFixedN(0, 2, down_counter_output, STYLE_NORMAL, 2);
+    // if (display_once_update == 1) {
+    // battery display
+    // display.printFixedN(0, 51, vbat, STYLE_NORMAL, 0);
 
     if (is_paused) {
         char marker[6];
@@ -321,10 +326,9 @@ void update_display_state() {
     } else {
         display.printFixedN(0, 34, "     ", STYLE_NORMAL, 2);
     }
-
-    // battery display
-    display.printFixedN(0, 51, cbat, STYLE_NORMAL, 0);
-
+    char bat_v[10];
+    snprintf(bat_v, 10, "BAT:%dV", vbat);
+    display.printFixedN(0, 51, bat_v, STYLE_NORMAL, 0);
     // dispaly address
     {
         static char address_display[7];
@@ -348,6 +352,8 @@ void update_display_state() {
                  seconds / 10, seconds % 10);
         display.printFixedN(0, 58, display_eeprom, STYLE_NORMAL, 0);
     }
+    // display_once_update = 0;
+    // }
 }
 
 void setup_io() {

@@ -11,12 +11,13 @@
 #define SLOWBAUD 2400
 #define TIMERADDR 12  // Max 1-15
 #define POWER 8
-
+#define HC12_TIMEOUT_PERIOD 60  /// multiple of 128ms
 const String channel_cmd = String("AT+C0") + String(RF_CH);
 const String power_cmd = String("AT+P") + String(POWER);
 const String baud_cmd = String("AT+B") + String(SLOWBAUD);
 const String check_cmd = String("AT");
 const String rx_cmd = String("AT+RX");
+const String sleep_cmd = String("AT+SLEEP");
 
 #define HC_SW 1  // POWEREN
 #define HC_SET 5
@@ -28,7 +29,10 @@ HardwareSerial &hc12 = Serial1;
 
 void hc12_turn_on() { digitalWrite(PIN_M0, 0); };
 void hc12_turn_off() { digitalWrite(PIN_M0, 1); };
-void hc12_set_mode() { digitalWrite(PIN_SET0, 0); };
+void hc12_set_mode() {
+    digitalWrite(PIN_SET0, 0);
+    delay(100);
+};
 void hc12_normal_mode() {
     digitalWrite(PIN_SET0, 1);
     delay(200);
