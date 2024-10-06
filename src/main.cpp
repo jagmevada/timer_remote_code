@@ -24,14 +24,14 @@
 // extern DisplaySSD1306_128x64_I2C display(-1);
 
 DisplaySSD1306_128x64_I2C display(-1);
-extern volatile bool update_display;
-extern volatile bool is_paused;
-extern ConfigurableDownCounter counter;
-extern void isr_up_button();
-extern void isr_ok_button();
-extern void isr_down_button();
-extern void isr_left_button();
-extern void isr_right_button();
+// extern volatile bool update_display;
+// extern volatile bool is_paused;
+// extern ConfigurableDownCounter counter;
+// extern void isr_up_button();
+// extern void isr_ok_button();
+// extern void isr_down_button();
+// extern void isr_left_button();
+// extern void isr_right_button();
 // ####################################################################
 // ###################### FUNCTIONS DECLARATION #######################
 // ####################################################################
@@ -344,12 +344,12 @@ void init_variable()
   // BOD.CTRLA = 0x2;
   // BOD.CTRLB = 0x0;
 
-#ifdef FIRSTTIME
+  // #ifdef FIRSTTIME
   EEPROM.write(EEPROMADDR, 20);
   delay(10);
   EEPROM.write(EEPROMADDR + 1, 0);
   delay(10);
-#endif
+  // #endif
 
   uint8_t mins = EEPROM.read(EEPROMADDR);
   delay(10);
@@ -504,18 +504,18 @@ ISR(RTC_PIT_vect)
     }
   }
 
-  if (timeout > 0)
-  { // Normal autoff timeout countdown, set to AUTOOFF_TIMEOUT
-    // when power button pressed
-    timeout--;
-    if (timeout == 0)
-    { // Normal autoff timeout event
-      presleep();
-    }
-  }
-
   if (ldostate == 1)
   { // Vbat monitoring and auto cutoff
+
+    if (timeout > 0)
+    { // Normal autoff timeout countdown, set to AUTOOFF_TIMEOUT
+      // when power button pressed
+      timeout--;
+      if (timeout == 0)
+      { // Normal autoff timeout event
+        presleep();
+      }
+    }
 
     if (t1 == 0)
     { // adc timing
