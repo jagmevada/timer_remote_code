@@ -119,8 +119,10 @@ void wakeup() {
     attachInterrupt(LEFT_BUTTON, isr_left_button, FALLING);
     attachInterrupt(RIGHT_BUTTON, isr_right_button, FALLING);
 
-    uint64_t seconds_to_subtract = (rtc_sleep_counter * 128) / 1000;
-    counter.CountDownBySeconds(seconds_to_subtract);
+    if (not is_paused) {  // Don't update the counter if we are on the paused screen
+        uint64_t seconds_to_subtract = (rtc_sleep_counter * 128) / 1000;
+        counter.CountDownBySeconds(seconds_to_subtract);
+    }
 
     // SWUP_INTCTRL = INTERRUPT_EN;
     // SWOK_INTCTRL = INTERRUPT_EN;
