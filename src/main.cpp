@@ -129,6 +129,7 @@ void wakeup() {
     // SWRIGHT_INTCTRL = INTERRUPT_EN;
     // attachInterrupt(BMS_BUTTON, isr_bms_button, FALLING);
     update_eeprom_display = true;
+    update_display = true;
 }
 
 // void setup()

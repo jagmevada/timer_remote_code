@@ -70,7 +70,8 @@ class ConfigurableDownCounter {
         if (not IsComplete()) {
             uint64_t current_seconds = (minutes_ * 60) + seconds_;
             current_seconds = max(0, current_seconds - num_seconds);
-            ConfigurableDownCounter(current_seconds / 60, current_seconds % 60);
+            minutes_ = min(current_seconds / 60, kMaxMinutes);
+            seconds_ = min(current_seconds % 60, kMaxSeconds);
         }
     }
 
