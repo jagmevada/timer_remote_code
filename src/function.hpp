@@ -13,7 +13,7 @@
 // ###################################################################
 #define ADC_IN 0
 #define POWEREN 1
-#define SW6 2 // INT
+#define SW6 2  // INT
 #define VCCEN 3
 #define LDOEN 4
 #define SET 5
@@ -23,7 +23,7 @@
 #define SCL 9
 #define SW1 10
 #define SW2 11
-#define SW3 12 // INT
+#define SW3 12  // INT
 #define SW5 13
 #define HC_TX 14
 #define HC_RX 15
@@ -41,18 +41,18 @@
 #define HWI2C 3
 
 #define SETUPLDO() pinMode(LDOEN, OUTPUT);
-#define LDOENABLE() digitalWrite(LDOEN, 0);  // active high, dcdc LDO on
-#define LDODISABLE() digitalWrite(LDOEN, 0); // active high, dcdc ldo shutdown
+#define LDOENABLE() digitalWrite(LDOEN, 0);   // active high, dcdc LDO on
+#define LDODISABLE() digitalWrite(LDOEN, 0);  // active high, dcdc ldo shutdown
 #define SETUPPOWER() pinMode(POWEREN, OUTPUT);
-#define POWERENABLE() digitalWrite(POWEREN, 0);  // active low,  VIN INPUT TO DCDC LDO supply UNavailable,
-#define POWERDISABLE() digitalWrite(POWEREN, 1); // active low,  VIN INPUT TO DCDC LDO supply available,
+#define POWERENABLE() digitalWrite(POWEREN, 0);   // active low,  VIN INPUT TO DCDC LDO supply UNavailable,
+#define POWERDISABLE() digitalWrite(POWEREN, 1);  // active low,  VIN INPUT TO DCDC LDO supply available,
 #define SETUPVAUX() pinMode(VCCEN, OUTPUT);
-#define VAUXENABLE() digitalWrite(VCCEN, 0);  // active low, I2C/UART1 module supply available
-#define VAUXDISABLE() digitalWrite(VCCEN, 0); // active low, I2C, UART1 module supply unavailable
+#define VAUXENABLE() digitalWrite(VCCEN, 0);   // active low, I2C/UART1 module supply available
+#define VAUXDISABLE() digitalWrite(VCCEN, 0);  // active low, I2C, UART1 module supply unavailable
 #define SETUPUART0() pinMode(PC_TX, OUTPUT);
 #define INTERRUPT_EN 0x3
 #define INTERRUPT_DIS 0x0
-#define SW_INTCTRL PORTA.PIN6CTRL /// POWER_SW interrupt enabled
+#define SW_INTCTRL PORTA.PIN6CTRL  /// POWER_SW interrupt enabled
 #define SWUP_INTCTRL PORTC.PIN0CTRL
 #define SWOK_INTCTRL PORTC.PIN1CTRL
 #define SWDOWN_INTCTRL PORTC.PIN2CTRL
@@ -60,9 +60,9 @@
 #define SWRIGHT_INTCTRL PORTC.PIN3CTRL
 
 #define OUTPUT_PINMASK PIN5_bm
-#define DEBOUNCE_PERIOD 5    /// Multiple of 128ms
-#define AUTOOFF_TIMEOUT 2445 // 2445 // 2445  // 3130  Multiple of 128ms or 100ms
-#define ADC_PERIOD 16        // 6        // 20s at multiple of 128ms
+#define DEBOUNCE_PERIOD 5     /// Multiple of 128ms
+#define AUTOOFF_TIMEOUT 2445  // 2445 // 2445  // 3130  Multiple of 128ms or 100ms
+#define ADC_PERIOD 16         // 6        // 20s at multiple of 128ms
 #define BAT_LOW_TIMEOUT 7
 #define UTH 3300
 #define LTH 2800
@@ -72,29 +72,29 @@
 #define CMD_RESTART 0
 #define CMD_RESUME 1
 #define CMD_HOLD 2
-#define CMD_SET_RESUME 3 // Will send payload
+#define CMD_SET_RESUME 3  // Will send payload
 #define CMD_STATUS 4
 #define CMD_NEWDATA 5
-#define CMD_EEPROM 6            //
-#define CMD_NONE2 7             //
-#define CHARGEPIN PIN_PA7       // 3
-#define BATTERY_SENSPIN PIN_PA6 // 2
-#define LEFT_BUTTON SW_LEFT     // 1  // S4
-#define RIGHT_BUTTON SW_RIGHT   // 13  // S5
-#define UP_BUTTON SW_UP         // 10  // S1
-#define OK_BUTTON SW_OK         // 11  // S2
-#define DOWN_BUTTON SW_DOWN     // 12  // S3
+#define CMD_EEPROM 6             //
+#define CMD_NONE2 7              //
+#define CHARGEPIN PIN_PA7        // 3
+#define BATTERY_SENSPIN PIN_PA6  // 2
+#define LEFT_BUTTON SW_LEFT      // 1  // S4
+#define RIGHT_BUTTON SW_RIGHT    // 13  // S5
+#define UP_BUTTON SW_UP          // 10  // S1
+#define OK_BUTTON SW_OK          // 11  // S2
+#define DOWN_BUTTON SW_DOWN      // 12  // S3
 #define BMS_BUTTON \
-    PIN_PB5 // battery management system button, for battery only
+    PIN_PB5  // battery management system button, for battery only
 #define EXTRA_PIN PIN_PB4
 
 #define OLED_SW PIN_PB3
 
 // Analog to digital converter time?
-#define ADCTIME 20 // multiply by 100ms
+#define ADCTIME 20  // multiply by 100ms
 // Sync time?
-#define SYNC_THRESHOLD 10         // multiply by 100ms
-#define BMS_TRIGGER_THRESHOLD 100 // multiply by 100ms
+#define SYNC_THRESHOLD 10          // multiply by 100ms
+#define BMS_TRIGGER_THRESHOLD 100  // multiply by 100ms
 #define EEPROMADDR 8
 
 // ###################################################################
@@ -111,13 +111,12 @@ typedef ADC_MUXPOS_t adc_0_channel_t;
 
 typedef struct
 {
-    u16 parity : 1;  // 1-bit field for parity
-    u16 address : 4; // 4-bit field for address
-    u16 command : 3; // 3-bit field for command
+    u16 parity : 1;   // 1-bit field for parity
+    u16 address : 4;  // 4-bit field for address
+    u16 command : 3;  // 3-bit field for command
 } protocol_byte;
 
-typedef union
-{
+typedef union {
     u8 byte;
     protocol_byte fields;
 } protocol_data;
@@ -157,86 +156,68 @@ protocol_data recieve_data;
 
 volatile bool update_eeprom_display = false;
 
-u8 paritycheck(u8 data)
-{
+u8 paritycheck(u8 data) {
     data ^= data >> 4;
     data ^= data >> 2;
     data ^= data >> 1;
     return data & 1;
 }
 
-void isr_up_button()
-{
+void isr_up_button() {
     Serial.println("up");
-    if (is_paused)
-    {
+    if (is_paused) {
         update_display = true;
-        switch (position_to_update)
-        {
-        case 0:
-        {
-            counter.IncrementTensMinuteDigit();
-            break;
-        }
-        case 1:
-        {
-            counter.IncrementOnesMinuteDigit();
-            break;
-        }
-        case 2:
-        {
-            counter.IncrementTensSecondDigit();
-            break;
-        }
-        case 3:
-        {
-            counter.IncrementOnesSecondDigit();
-            break;
-        }
-        default:
-        {
-        }
+        switch (position_to_update) {
+            case 0: {
+                counter.IncrementTensMinuteDigit();
+                break;
+            }
+            case 1: {
+                counter.IncrementOnesMinuteDigit();
+                break;
+            }
+            case 2: {
+                counter.IncrementTensSecondDigit();
+                break;
+            }
+            case 3: {
+                counter.IncrementOnesSecondDigit();
+                break;
+            }
+            default: {
+            }
         }
     }
 };
 
-void isr_down_button()
-{
+void isr_down_button() {
     Serial.println("down");
-    if (is_paused)
-    {
+    if (is_paused) {
         update_display = true;
-        switch (position_to_update)
-        {
-        case 0:
-        {
-            counter.DecrementTensMinuteDigit();
-            break;
-        }
-        case 1:
-        {
-            counter.DecrementOnesMinuteDigit();
-            break;
-        }
-        case 2:
-        {
-            counter.DecrementTensSecondDigit();
-            break;
-        }
-        case 3:
-        {
-            counter.DecrementOnesSecondDigit();
-            break;
-        }
-        default:
-        {
-        }
+        switch (position_to_update) {
+            case 0: {
+                counter.DecrementTensMinuteDigit();
+                break;
+            }
+            case 1: {
+                counter.DecrementOnesMinuteDigit();
+                break;
+            }
+            case 2: {
+                counter.DecrementTensSecondDigit();
+                break;
+            }
+            case 3: {
+                counter.DecrementOnesSecondDigit();
+                break;
+            }
+            default: {
+            }
         }
     }
 };
 
-void isr_ok_button()
-{
+void isr_ok_button() {
     Serial.println("ok");
     need_to_send = true;
 
@@ -244,7 +225,7 @@ void isr_ok_button()
     sent_data.fields.parity = 0;
 
     // Reset
-    if (digitalRead(RIGHT_BUTTON) == LOW && digitalRead(LEFT_BUTTON) == HIGH) // RELOAD TIME FROM EEPROM
+    if (digitalRead(RIGHT_BUTTON) == LOW && digitalRead(LEFT_BUTTON) == HIGH)  // RELOAD TIME FROM EEPROM
     {
         Serial.println("reset");
         uint8_t mins = EEPROM.read(EEPROMADDR);
@@ -256,9 +237,8 @@ void isr_ok_button()
 
         sent_data.fields.command = CMD_RESTART;
         // is_paused = true; // comment this code
-    }
-    else if (digitalRead(RIGHT_BUTTON) == LOW &&
-             digitalRead(LEFT_BUTTON) == LOW) //// WRITE NEW TIME TO EEPROM
+    } else if (digitalRead(RIGHT_BUTTON) == LOW &&
+               digitalRead(LEFT_BUTTON) == LOW)  //// WRITE NEW TIME TO EEPROM
     {
         // Write to EEPROM and start from there.
         unsigned char mins = (unsigned char)counter.GetMinutes();
@@ -271,16 +251,11 @@ void isr_ok_button()
         update_eeprom_display = true;
 
         sent_data.fields.command = CMD_EEPROM;
-    }
-    else
-    { // PAUSE TIMER
-        if (is_paused)
-        {
+    } else {  // PAUSE TIMER
+        if (is_paused) {
             // press should resume
             sent_data.fields.command = CMD_SET_RESUME;
-        }
-        else
-        {
+        } else {
             // press should pause
             sent_data.fields.command = CMD_HOLD;
         }
@@ -289,28 +264,23 @@ void isr_ok_button()
     sent_data.fields.parity = paritycheck(sent_data.byte);
 };
 
-void isr_right_button()
-{
+void isr_right_button() {
     Serial.println("right");
-    if (is_paused)
-    {
+    if (is_paused) {
         update_display = true;
         position_to_update = min(position_to_update + 1, 3);
     }
 };
 
-void isr_left_button()
-{
+void isr_left_button() {
     Serial.println("left");
-    if (is_paused)
-    {
+    if (is_paused) {
         update_display = true;
         position_to_update = max(position_to_update - 1, 0);
     }
 };
 
-void setup_display()
-{
+void setup_display() {
     display.clear();
     lcd_delay(10);
     display.setFixedFont(ssd1306xled_font6x8);
@@ -324,36 +294,31 @@ void setup_display()
     display.printFixedN(0, 2, "JSCA", STYLE_NORMAL, 2);
 };
 
-void update_display_state()
-{
+void update_display_state() {
     counter.SetOutputString(down_counter_output);
     display.printFixedN(0, 2, down_counter_output, STYLE_NORMAL, 2);
 
-    if (is_paused)
-    {
+    if (is_paused) {
         char marker[6];
-        switch (position_to_update)
-        {
-        case 0:
-            snprintf(marker, 6, "^    ");
-            break;
-        case 1:
-            snprintf(marker, 6, " ^   ");
-            break;
-        case 2:
-            snprintf(marker, 6, "   ^ ");
-            break;
-        case 3:
-            snprintf(marker, 6, "    ^");
-            break;
-        default:
-            snprintf(marker, 6, "^^^^^");
-            break;
+        switch (position_to_update) {
+            case 0:
+                snprintf(marker, 6, "^    ");
+                break;
+            case 1:
+                snprintf(marker, 6, " ^   ");
+                break;
+            case 2:
+                snprintf(marker, 6, "   ^ ");
+                break;
+            case 3:
+                snprintf(marker, 6, "    ^");
+                break;
+            default:
+                snprintf(marker, 6, "^^^^^");
+                break;
         }
         display.printFixedN(0, 34, marker, STYLE_NORMAL, 2);
-    }
-    else
-    {
+    } else {
         display.printFixedN(0, 34, "     ", STYLE_NORMAL, 2);
     }
 
@@ -371,8 +336,7 @@ void update_display_state()
     {
         static uint8_t mins = 0;
         static uint8_t seconds = 0;
-        if (update_eeprom_display)
-        {
+        if (update_eeprom_display) {
             mins = EEPROM.read(EEPROMADDR);
             delay(10);
             seconds = EEPROM.read(EEPROMADDR + 1);
@@ -386,9 +350,8 @@ void update_display_state()
     }
 }
 
-void setup_io()
-{
-    pinMode(ADC_IN, OUTPUT); // ADC pin output low for power saving
+void setup_io() {
+    pinMode(ADC_IN, OUTPUT);  // ADC pin output low for power saving
     digitalWrite(ADC_IN, LOW);
     SETUPLDO();
     LDODISABLE();
@@ -397,23 +360,23 @@ void setup_io()
     SETUPVAUX();
     VAUXDISABLE();
     // pinMode(1, OUTPUT); // POWER_EN
-    pinMode(2, INPUT); // SW6 POWER_SW external pulled up
+    pinMode(2, INPUT);  // SW6 POWER_SW external pulled up
     // pinMode(3, OUTPUT); // VCCEN
     // pinMode(4, OUTPUT); // LDO_EN
     // digitalWrite(3, LOW); // it is external pulled down pinMode
-    pinMode(5, OUTPUT); // pulled low
+    pinMode(5, OUTPUT);  // pulled low
     digitalWrite(5, 0);
     // pinMode(6, INPUT_PULLUP); // PC_RX
     // pinMode(7, INPUT_PULLUP); // PC_TX
     // pinMode(8, OUTPUT);        // SDA
     // pinMode(9, OUTPUT);        // SCL
-    pinMode(10, INPUT); // SW1
-    pinMode(11, INPUT); // SW2
-    pinMode(12, INPUT); // SW3
-    pinMode(13, INPUT); // SW5
+    pinMode(10, INPUT);  // SW1
+    pinMode(11, INPUT);  // SW2
+    pinMode(12, INPUT);  // SW3
+    pinMode(13, INPUT);  // SW5
     // pinMode(14, INPUT_PULLUP); // HC_TX//Cautious as this pin is TXD
     // pinMode(15, INPUT_PULLUP); // //Cautious as this pin is RXD
-    pinMode(16, INPUT); // SW4
+    pinMode(16, INPUT);  // SW4
 
     SWUP_INTCTRL = INTERRUPT_DIS;
     SWOK_INTCTRL = INTERRUPT_DIS;

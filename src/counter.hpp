@@ -65,6 +65,15 @@ class ConfigurableDownCounter {
         }
     }
 
+    /// @brief Decrements the timer by the given number of seconds.
+    void CountDownBySeconds(uint64_t num_seconds) {
+        if (not IsComplete()) {
+            uint64_t current_seconds = (minutes_ * 60) + seconds_;
+            current_seconds = max(0, current_seconds - num_seconds);
+            ConfigurableDownCounter(current_seconds / 60, current_seconds % 60);
+        }
+    }
+
     /// @brief Writes count to the output array.
     /// @param output Output array to write to. MUST have
     /// size 6.

@@ -9,7 +9,7 @@
 #define RF_CH (10 + MYADDRESS)
 #define DEFAULTBAUD 9600
 #define SLOWBAUD 2400
-#define TIMERADDR 12 // Max 1-15
+#define TIMERADDR 12  // Max 1-15
 #define POWER 8
 
 const String channel_cmd = String("AT+C0") + String(RF_CH);
@@ -18,7 +18,7 @@ const String baud_cmd = String("AT+B") + String(SLOWBAUD);
 const String check_cmd = String("AT");
 const String rx_cmd = String("AT+RX");
 
-#define HC_SW 1 // POWEREN
+#define HC_SW 1  // POWEREN
 #define HC_SET 5
 
 #define PIN_SET0 HC_SET
@@ -29,19 +29,15 @@ HardwareSerial &hc12 = Serial1;
 void hc12_turn_on() { digitalWrite(PIN_M0, 0); };
 void hc12_turn_off() { digitalWrite(PIN_M0, 1); };
 void hc12_set_mode() { digitalWrite(PIN_SET0, 0); };
-void hc12_normal_mode()
-{
+void hc12_normal_mode() {
     digitalWrite(PIN_SET0, 1);
     delay(200);
 };
 
-void print_me()
-{
+void print_me() {
     static char c;
-    if (hc12.available())
-    {
-        while (hc12.available())
-        {
+    if (hc12.available()) {
+        while (hc12.available()) {
             c = hc12.read();
             Serial.print(c);
         }
@@ -49,8 +45,7 @@ void print_me()
     }
 }
 
-void hc12_power_on_setup()
-{
+void hc12_power_on_setup() {
     Serial.println("HC 12 Setup");
 
     hc12_normal_mode();
@@ -107,8 +102,7 @@ void hc12_power_on_setup()
 #endif
 };
 
-void hc12_setup_hot()
-{
+void hc12_setup_hot() {
     // hc12_turn_off();
     hc12_normal_mode();
     hc12_turn_on();
