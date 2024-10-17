@@ -82,7 +82,11 @@ uint64_t rtc_sleep_counter = 0;
 void setup() {
     init_variable();
     setup_io();
-
+    uint8_t mins = EEPROM.read(EEPROMADDR);
+    delay(10);
+    uint8_t seconds = EEPROM.read(EEPROMADDR + 1);
+    delay(10);
+    counter = ConfigurableDownCounter(mins, seconds);
     hwdisable(HWUART0);
     hwdisable(HWUART1);
     hwenable(HWI2C);
@@ -110,6 +114,8 @@ void setup() {
 void wakeup() {
     // Serial.println(F("SSD1306 allocation failed"));
     // display.begin();
+
+    init_variable();
     display_once_update = 1;
     pinMode(ADC_IN, INPUT);  // ADC
     ADC0_Enable();
@@ -146,50 +152,6 @@ void wakeup() {
     update_display = true;
 }
 
-// void setup()
-// {
-//   init_variable();
-//   void setup_io();
-//   // SETUPLDO();
-//   // LDOENABLE();
-//   // PORTA.OUT |= OUTPUT_PINMASK; // turn on again but
-//   pinMode(ADC_IN, INPUT); // ADC
-//   ADC0_Enable();
-//   t1 = 3;
-//   timeout = AUTOOFF_TIMEOUT;
-//   hwenable(HWI2C);
-//   hwenable(HWUART0);
-//   hwenable(HWUART1);
-//   Serial.begin(9600);
-//   Serial.println("Wokeup");
-//   POWERENABLE();
-//   delay(1000);
-//   setup_display();
-//   delay(1000);
-//   // hwdisable(HWUART0);
-//   // hwdisable(HWUART1);
-//   // hwenable(HWI2C);
-//   batstate = HIGH;
-//   new_input = 0;
-//   Serial.begin(9600);
-//   Serial.println("init..ed");
-
-//   // presleep();
-//   ADC0_Initialize();
-//   ADC0_Disable();
-//   set_sleep_mode(SLEEP_MODE_STANDBY);
-//   attachInterrupt(SWINPUT, button_input, FALLING);
-//   setup_timer_rtc();
-//   setup_timer_b0();
-//   // hc12_power_on_setup();
-//   // hc12_normal_mode();
-
-//   // // Serial.begin(2400);
-//   // update_eeprom_display = true;
-//   // sleep_enable();
-//   sei(); // Enable global interrupts
-// }
-
 // ###################################################################
 // #######################  LOOP#  ###################################
 // ###################################################################
@@ -207,6 +169,7 @@ void loop() {
         wakeup_now = 0;
         Serial.print("wokeup");
     }
+
     if (sleep_now) {
         Serial.print("sleep ISR");
         presleep();
@@ -402,15 +365,9 @@ void init_variable() {
     delay(10);
 #endif
 
-    uint8_t mins = EEPROM.read(EEPROMADDR);
-    delay(10);
-    uint8_t seconds = EEPROM.read(EEPROMADDR + 1);
-    delay(10);
-    counter = ConfigurableDownCounter(mins, seconds);
-
     new_input = 0;
     batstate = 1;
-    ldostate = 0;
+    ldostate = 1;
     ldostateprev = 0;
     vbat = 4095;
     vbatx = 4095;

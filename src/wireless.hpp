@@ -1,17 +1,16 @@
 #pragma once
 
-// #define FIRSTTIME
-
 #include <Arduino.h>
 #include <HardwareSerial.h>
-
+// This is remote
+// #define FIRSTTIME
 #define MYADDRESS 1
 #define RF_CH (10 + MYADDRESS)
 #define DEFAULTBAUD 9600
 #define SLOWBAUD 2400
 #define TIMERADDR 12  // Max 1-15
 #define POWER 8
-#define HC12_TIMEOUT_PERIOD 60  /// multiple of 128ms
+#define HC12_TIMEOUT_PERIOD 30  /// multiple of 128ms
 const String channel_cmd = String("AT+C0") + String(RF_CH);
 const String power_cmd = String("AT+P") + String(POWER);
 const String baud_cmd = String("AT+B") + String(SLOWBAUD);
