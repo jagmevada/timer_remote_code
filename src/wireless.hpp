@@ -4,7 +4,7 @@
 #include <HardwareSerial.h>
 // This is remote
 // #define FIRSTTIME
-#define MYADDRESS 1
+#define MYADDRESS 5
 #define RF_CH (10 + MYADDRESS)
 #define DEFAULTBAUD 9600
 #define SLOWBAUD 2400

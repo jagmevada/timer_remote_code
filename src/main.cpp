@@ -169,6 +169,16 @@ void loop() {
         wakeup_now = 0;
         Serial.print("wokeup");
     }
+    if (autooff_update > 0) {
+        // if (autooff_update == 1) {
+        //     Serial.print("sleep:auto off timeout");
+        // } else {
+        //     Serial.print("sleep:battery low");
+        // }
+        autooff_update = 0;
+        power_button_count = 6;
+        power_button_timeout = 1;
+    }
 
     if (sleep_now) {
         Serial.print("sleep ISR");
@@ -176,21 +186,12 @@ void loop() {
         POWERDISABLE();
         sleep_now = 0;
     }
-    if (autooff_update > 0) {
-        if (autooff_update = 1) {
-            Serial.print("sleep:auto off timeout");
-        } else {
-            Serial.print("sleep:battery low");
-        }
 
-        autooff_update = 0;
-        presleep();
-        POWERDISABLE();
-    }
     // ADC0.CTRLA &= ~ADC_ENABLE_bm;
     if (txready) {
         Serial.println(vbat * 4.096 / 4096);
         txready = 0;
+        Serial.println((uint8_t)autooff_timeout);
     }
 
     if (hc12_stateupdate) {
@@ -374,7 +375,7 @@ void init_variable() {
     t0 = DEBOUNCE_PERIOD;
     t2 = 0;
     t1 = 9;
-    autooff_timeout = 0;
+    autooff_timeout = AUTOOFF_TIMEOUT;
     txready = 0;
     need_to_send = 0;
 }
